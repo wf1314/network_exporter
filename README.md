@@ -1,6 +1,6 @@
 # network_exporter
 
-## 用于校验代理可用性
+# 用于校验代理可用性
 
 ## Prometheus Configuration
 ```
@@ -14,7 +14,7 @@ scrape_configs:
       headers: ['{}']
       request_data: ['{}']
       request_method: [GET]
-      response_data: [ttttttt]
+      response_data: []
       response_coding: [utf8]
       timeout: [50]
       name: []

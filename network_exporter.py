@@ -11,7 +11,7 @@
 import os
 import json
 import time
-# import pycurl
+import pycurl
 import logging
 from typing import Optional
 from datetime import timedelta
@@ -247,10 +247,10 @@ class MainHandler(RequestHandler):
             request.proxy_username = proxy['proxy_user']
             request.proxy_password = proxy['proxy_pwd']
 
-        # if proxy['proxy_type'] == 'socks5':
-        #     request.prepare_curl_callback = (
-        #         lambda c: c.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_SOCKS5)
-        #     )
+        if proxy['proxy_type'] == 'socks5':
+            request.prepare_curl_callback = (
+                lambda c: c.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_SOCKS5)
+            )
         request.validate_cert = False
         request.follow_redirects = False
         return request
