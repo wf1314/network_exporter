@@ -14,7 +14,7 @@ scrape_configs:
       headers: ['{}']
       request_data: ['{}']
       request_method: [GET]
-      response_data: [ttttttt]
+      response_data: []
       response_coding: [utf8]
       timeout: [50]
       name: []
