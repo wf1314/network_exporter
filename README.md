@@ -29,3 +29,9 @@ scrape_configs:
       - target_label: __address__
         replacement: 127.0.0.1:9116  # The network exporter's real hostname:port.
 ```
+
+## Local Run
+```
+make build
+make start
+```
