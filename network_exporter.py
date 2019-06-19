@@ -1,18 +1,31 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+# ===============================================================================
+#  Author: WangFan <sgwf525@126.com>
+#  Version: 0.1
+#  Description: Prometheus Exporter
+#  Change Log:
+#      2019-06-19
+#          0.1 完成
+# ===============================================================================
 import os
 import json
 import time
 import pycurl
-import tornado.ioloop
-import tornado.web
-import tornado.options
-import tornado.log
-from tornado.log import enable_pretty_logging
-from tornado.log import LogFormatter
 import logging
 from typing import Optional
-from tornado import gen
 from datetime import timedelta
 from urllib.parse import urlencode
+
+from tornado import gen
+from tornado.ioloop import IOLoop
+from tornado.web import RequestHandler
+from tornado.web import Application
+from tornado.options import define
+from tornado.options import options
+from tornado.log import enable_pretty_logging
+from tornado.log import LogFormatter
+from logging.handlers import RotatingFileHandler
 from tornado.httpclient import HTTPRequest
 from tornado.httpclient import HTTPResponse
 from tornado.curl_httpclient import CurlAsyncHTTPClient
@@ -147,21 +160,36 @@ def return_result_tmp(resp: Optional[HTTPResponse],
     return output
 
 
-class MainHandler(tornado.web.RequestHandler):
+def get_logger(file: str):
+    """
+    获取日志对象
+    :return:
+    """
+    log_dir = file
 
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    enable_pretty_logging()
+
+    log = logging.getLogger(__name__)
+    log.setLevel(logging.DEBUG)
+    log_file = os.path.join(log_dir, 'log.log')
+    handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024 * 30, backupCount=10)
+    default_format = '%(color)s[%(levelname)1.1s %(asctime)s.%(msecs)03d %(module)s:%(lineno)d]%(end_color)s %(' \
+                     'message)s '
+    handler.setFormatter(LogFormatter(color=True, fmt=default_format))
+    log.addHandler(handler)
+    log.info('----------初始化日志-----------')
+    return log
+
+
+class MainHandler(RequestHandler):
+    """"""
     def initialize(self):
-        # log_name = tornado.options.options.log_file_name
-        # if not os.path.exists(log_name):
-        #     os.makedirs(log_name)
-
-        enable_pretty_logging()
-        logger = logging.getLogger()
-        logger.setLevel(logging.DEBUG)
-        handler = logging.StreamHandler()
-        DEFAULT_FORMAT = '%(color)s[%(levelname)1.1s %(asctime)s.%(msecs)03d %(module)s:%(lineno)d]%(end_color)s %(' \
-                         'message)s '
-        handler.setFormatter(LogFormatter(color=True, fmt=DEFAULT_FORMAT))
-        logger.addHandler(handler)
+        """
+        初始化
+        :return:
+        """
         self.logger = logger
 
     async def get(self):
@@ -171,6 +199,7 @@ class MainHandler(tornado.web.RequestHandler):
         """
         st = time.time()
         args = deal_args(self.request.arguments)
+        self.logger.debug(self.get_arguments)
         self.logger.debug(self.request.arguments)
         headers = json.loads(args.get('headers', '{}'))
         data = json.loads(args.get('request_data', '{}'))
@@ -285,7 +314,8 @@ class MainHandler(tornado.web.RequestHandler):
     def _get_charset(self, content_type: str, resp_encoding: str) -> str:
         """
         返回r.text编码
-        :param content:
+        :param content_type:
+        :param resp_encoding:
         :return:
         """
         if content_type and len(content_type.split('charset=')) == 2:
@@ -295,16 +325,19 @@ class MainHandler(tornado.web.RequestHandler):
 
 
 def main():
-    application = tornado.web.Application([
+    define("addr", default='0.0.0.0', type=str, help="run server on the given address.")  # 定义服务器监听端口选项
+    define("port", default=9116, type=int, help="run server on the given port.")  # 定义服务器监听端口选项
+    define("log_file_name", default="/tmp/network_log", type=str, help="log directory")
+    options.parse_config_file('./config')
+    options.parse_command_line()
+    global logger
+    logger = get_logger(options.log_file_name)
+    application = Application([
         (r"/probe", MainHandler),
     ])  # 路由规则
 
-    tornado.options.define("port", default=9116, type=int, help="run server on the given port.")  # 定义服务器监听端口选项
-    # tornado.options.define("log_file_name", default="/tmp/network_log", type=str)
-
-    application.listen(tornado.options.options.port)
-
-    tornado.ioloop.IOLoop.current().start()
+    application.listen(options.port, address=options.addr)
+    IOLoop.current().start()
 
 
 if __name__ == "__main__":
