@@ -1,13 +1,15 @@
 # -*- coding:utf-8 -*-
+"""
 # ===============================================================================
 #  Author: WangFan <sgwf525@126.com>
 #  Version: 0.1
-#  Description: Prometheus Exporter
+#  Description: 用于检测代理连接是否正常
 #  Environment: Python 3.7
 #  Change Log:
 #      2019-06-19
 #          0.1 完成
 # ===============================================================================
+"""
 import os
 import json
 import time
@@ -72,7 +74,6 @@ def format_proxy(proxy_str: str) -> dict:
     :return:
     """
     output = {}
-
     proxy_info_list = proxy_str.split('=')
     output['proxy_type'] = proxy_info_list[0]
 
@@ -183,6 +184,7 @@ def get_logger(file: str):
 
 class MainHandler(RequestHandler):
     """"""
+
     def initialize(self):
         """
         初始化
@@ -203,14 +205,16 @@ class MainHandler(RequestHandler):
         headers = json.loads(args.get('headers', '{}'))
         data = json.loads(args.get('request_data', '{}'))
         method = args.get('request_method', 'GET')
-        proxy = args.get('proxy', '')
         response_data = args.get('response_data', '')
         resp_coding = args.get('response_coding', 'utf8')
         status_code_list = args.get('status_code', ['200'])
         timeout = int(args.get('timeout', 10))
-        proxy_dict = format_proxy(proxy)
         url = args.get('target', 'http://www.baidu.com')
-
+        proxy = args.get('proxy')
+        if not proxy:
+            self.write('参数错误proxy为必传')
+            return
+        proxy_dict = format_proxy(proxy)
         resp = await self.use_proxy_request(url, method, data, headers, timeout, proxy_dict, resp_coding)
         all_time = str(time.time() - st)  # 探测完成所需的时间
         output = return_result_tmp(resp, all_time, status_code_list, response_data)
@@ -241,13 +245,13 @@ class MainHandler(RequestHandler):
             url, method=method, headers=headers, body=data, request_timeout=timeout,
             connect_timeout=timeout
         )
-        request.proxy_host = proxy['host']
-        request.proxy_port = proxy['port']
+        request.proxy_host = proxy.get('host')
+        request.proxy_port = proxy.get('port')
         if proxy.get('proxy_user'):
             request.proxy_username = proxy['proxy_user']
             request.proxy_password = proxy['proxy_pwd']
 
-        if proxy['proxy_type'] == 'socks5':
+        if proxy.get('proxy_type') == 'socks5':
             request.prepare_curl_callback = (
                 lambda c: c.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_SOCKS5)
             )
@@ -277,21 +281,19 @@ class MainHandler(RequestHandler):
         """
         client = CurlAsyncHTTPClient(force_instance=True)
         request = self.make_request(url, method, data, headers, timeout, proxy_dict)
-        time_msg = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         try:
             resp = await client.fetch(request, raise_error=False)
             msg = (
-                '{} ===> host: {}:{}, url: {} ,result: {}'.format(
-                    time_msg, proxy_dict['host'], proxy_dict['port'],
+                'host: {}:{}, url: {} ,result: {}'.format(
+                    proxy_dict['host'], proxy_dict['port'],
                     url, resp.code
                 )
             )
             self.logger.debug(msg)
         except Exception as e:
-            time_msg = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             self.logger.error(
-                '{} ===> host: {}:{}, url: {}, result: {}'.format(
-                    time_msg, proxy_dict['host'], proxy_dict['port'],
+                'host: {}:{}, url: {}, result: {}'.format(
+                    proxy_dict['host'], proxy_dict['port'],
                     url, str(e)
                 )
             )
@@ -341,5 +343,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()
