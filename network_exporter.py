@@ -30,6 +30,7 @@ from logging.handlers import RotatingFileHandler
 from tornado.httpclient import HTTPRequest
 from tornado.httpclient import HTTPResponse
 from tornado.curl_httpclient import CurlAsyncHTTPClient
+from tornado.curl_httpclient import HTTPError
 
 
 async def is_network(timeout: int = 3) -> bool:
@@ -288,6 +289,11 @@ class MainHandler(RequestHandler):
                 )
             )
             self.logger.debug(msg)
+        except HTTPError as e:
+            if e.response is not None:
+                resp = e.response
+            else:
+                return
         except Exception as e:
             self.logger.error(
                 'proxy: {}:{}, url: {}, result: {}'.format(
