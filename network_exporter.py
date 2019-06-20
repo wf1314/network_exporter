@@ -289,11 +289,6 @@ class MainHandler(RequestHandler):
                 )
             )
             self.logger.debug(msg)
-        except HTTPError as e:
-            if e.response is not None:
-                resp = e.response
-            else:
-                return
         except Exception as e:
             self.logger.error(
                 'proxy: {}:{}, url: {}, result: {}'.format(
@@ -301,8 +296,11 @@ class MainHandler(RequestHandler):
                     url, str(e)
                 )
             )
-            return
-        return self.get_response_data(resp, resp_encoding)
+            resp = None
+        if resp:
+            resp = self.get_response_data(resp, resp_encoding)
+        client.close()
+        return resp
 
     def get_response_data(self, resp: HTTPResponse, resp_encoding: str) -> HTTPResponse:
         """
@@ -327,6 +325,7 @@ class MainHandler(RequestHandler):
         if content_type and len(content_type.split('charset=')) == 2:
             return content_type.split('charset=')[1]
         else:
+            self.logger.error(content_type)
             return resp_encoding
 
 
