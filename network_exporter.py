@@ -297,9 +297,10 @@ class MainHandler(RequestHandler):
                 )
             )
             resp = None
+        finally:
+            client.close()
         if resp:
             resp = self.get_response_data(resp, resp_encoding)
-        client.close()
         return resp
 
     def get_response_data(self, resp: HTTPResponse, resp_encoding: str) -> HTTPResponse:
