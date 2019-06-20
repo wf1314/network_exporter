@@ -142,7 +142,7 @@ def return_result_tmp(resp: Optional[HTTPResponse],
         content_length = len(resp.body) if resp.body else 0
         is_sucss = str(resp.code) in status_code_list and response_data in resp.text
         resp_code = resp.code
-    output = f"# Returns the time taken for probe dns lookup in seconds\n" \
+    output = f"# Returns the total time taken for probe in seconds\n" \
              f"probe_duration_seconds {all_time}\n" \
              f"# Returns how long the probe took to complete in seconds\n" \
              f"probe_http_content_length {content_length}\n" \
