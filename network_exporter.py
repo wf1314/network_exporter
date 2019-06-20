@@ -76,7 +76,8 @@ def format_proxy(proxy_str: str) -> dict:
     output = {}
     proxy_info_list = proxy_str.split('=')
     output['proxy_type'] = proxy_info_list[0]
-
+    if not proxy_str:
+        return {}
     if '@' in proxy_str:
         proxy_ip_info_list = proxy_info_list[1].split('@')
         output['host'], output['port'] = proxy_ip_info_list[1].split(':')
@@ -94,7 +95,7 @@ def format_proxy(proxy_str: str) -> dict:
     return output
 
 
-def get_urlencoded_body(data: dict) -> str:
+def get_urlencoded_body(data: dict) -> Optional[str]:
     """
     data字典转为字符串
     :param data:
@@ -210,10 +211,7 @@ class MainHandler(RequestHandler):
         status_code_list = args.get('status_code', ['200'])
         timeout = int(args.get('timeout', 10))
         url = args.get('target', 'http://www.baidu.com')
-        proxy = args.get('proxy')
-        if not proxy:
-            self.write('参数错误proxy为必传')
-            return
+        proxy = args.get('proxy' , '')
         proxy_dict = format_proxy(proxy)
         resp = await self.use_proxy_request(url, method, data, headers, timeout, proxy_dict, resp_coding)
         all_time = str(time.time() - st)  # 探测完成所需的时间
@@ -284,16 +282,16 @@ class MainHandler(RequestHandler):
         try:
             resp = await client.fetch(request, raise_error=False)
             msg = (
-                'host: {}:{}, url: {} ,result: {}'.format(
-                    proxy_dict['host'], proxy_dict['port'],
+                'proxy: {}:{}, url: {} ,result: {}'.format(
+                    proxy_dict.get('host'), proxy_dict.get('port'),
                     url, resp.code
                 )
             )
             self.logger.debug(msg)
         except Exception as e:
             self.logger.error(
-                'host: {}:{}, url: {}, result: {}'.format(
-                    proxy_dict['host'], proxy_dict['port'],
+                'proxy: {}:{}, url: {}, result: {}'.format(
+                    proxy_dict.get('host'), proxy_dict.get('port'),
                     url, str(e)
                 )
             )
