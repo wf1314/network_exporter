@@ -75,7 +75,7 @@ def format_proxy(proxy_str: str) -> dict:
     :return:
     """
     output = {}
-    proxy_info_list = proxy_str.split('=')
+    proxy_info_list = proxy_str.split('://')
     output['proxy_type'] = proxy_info_list[0]
     if not proxy_str:
         return {}

@@ -1,6 +1,4 @@
-# network_exporter
-
-# 用于校验代理可用性
+# [Prometheus](https://prometheus.io) Exporter
 
 ## Prometheus Configuration
 ```
@@ -10,13 +8,13 @@ scrape_configs:
     params:
       status_code: [200, ]  # Look for a HTTP 200 response.
       ic_code: [yaicn]
-      proxy: [http=user:password@39.96.88.88:9000]
+      proxy: [http://wangfan:123456@47.95.248.13:19000]
       headers: ['{}']
       request_data: ['{}']
       request_method: [GET]
       response_data: []
       response_coding: [utf8]
-      timeout: [50]
+      timeout: [10]
       name: []
     static_configs:
       - targets:
@@ -34,4 +32,10 @@ scrape_configs:
 ```
 make build
 make start
+```
+
+## Checking the results
+
+```
+curl http://localhost:9116/probe?target=www.baidu.com&proxy=http://wangfan:123456@47.95.248.13:19000
 ```
