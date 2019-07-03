@@ -37,11 +37,7 @@ make start
 ## Checking the results
 
 ```
-curl http://localhost:9116/probe?target=www.baidu.com&proxy=http://wangfan:123456@47.95.248.13:19000
-```
-
-```
-curl http://localhost:9116/probe?target=www.baidu.com&chart=1
+curl http://localhost:9116/probe?target=www.baidu.com&proxy=http://wangfan:123456@47.95.248.13:19000&chart=1
 ```
 ```
           DNS Lookup   TCP Connection   TLS Handshake   Server Processing   Content Transfer
