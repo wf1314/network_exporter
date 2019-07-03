@@ -6,16 +6,17 @@ scrape_configs:
   - job_name: 'blackbox'
     metrics_path: /probe
     params:
-      status_code: [200, ]  # Look for a HTTP 200 response.
-      ic_code: [yaicn]
+      status_code: [200, ]  # Look for a HTTP 200 response.eg:[301,302,303]
+      ic_code: [yaicn]  # any
       proxy: [http://wangfan:123456@47.95.248.13:19000]
-      headers: ['{}']
-      request_data: ['{}']
-      request_method: [GET]
-      response_data: []
+      headers: ['{}']  # eg: ['{"Content-Type":"application/x-www-form-urlencoded"}']
+      request_data: ['{}']  # eg: ['{"abc":123}']
+      request_method: [GET]  # GET POST
+      response_body: []  # 根据相应内容判断是否请求成功
       response_coding: [utf8]
       timeout: [10]
-      name: []
+      name: []  # any
+      chart: []  # 1 or '' 为1时返回图表
     static_configs:
       - targets:
         - https://www.baidu.com    # Target to
@@ -51,7 +52,7 @@ curl http://localhost:9116/probe?target=www.baidu.com&proxy=http://wangfan:12345
 
 ```
 
-## Checking the results 
+## Checking the results text
 ```
 curl http://localhost:9116/probe?target=www.baidu.com&proxy=http://wangfan:123456@47.95.248.13:19000
 ```

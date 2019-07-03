@@ -75,7 +75,7 @@ class MainHandler(RequestHandler):
         headers = json.loads(args.get('headers', '{}'))
         data = json.loads(args.get('request_data', '{}'))
         method = args.get('request_method', 'GET')
-        response_data = args.get('response_data', '')
+        response_body = args.get('response_body', '')
         resp_coding = args.get('response_coding', 'utf8')
         status_code_list = args.get('status_code', ['200'])
         timeout = int(args.get('timeout', 10))
@@ -86,7 +86,7 @@ class MainHandler(RequestHandler):
         resp = await self.use_proxy_request(url, method, data, headers, timeout, proxy_dict, resp_coding)
         current_time = f'{time.time():.8e}'
         all_time = str(time.time() - st)  # 探测完成所需的时间
-        output = self.return_result_tmp(resp, all_time, current_time,status_code_list, response_data, chart)
+        output = self.return_result_tmp(resp, all_time, current_time,status_code_list, response_body, chart)
         self.logger.debug(output)
         self.set_header("Content-Type", "text/plain; version=0.0.4")
         self.write(output)
@@ -162,12 +162,12 @@ class MainHandler(RequestHandler):
                           all_time: str,
                           current_time: str,
                           status_code_list: list,
-                          response_data: str,
+                          response_body: str,
                           chart: str
                           ) -> str:
         """
         构造响应内容
-        :param response_data:
+        :param response_body:
         :param status_code_list:
         :param resp:
         :param all_time:
@@ -179,7 +179,7 @@ class MainHandler(RequestHandler):
                 'namelookup': '0',
                 'tcp_connection': '0',
                 'connect': '0',
-                'ssl_handshake': '0',
+                'tls_handshake': '0',
                 'pretransfer': '0',
                 'server_processing': '0',
                 'starttransfer': '0',
@@ -195,7 +195,7 @@ class MainHandler(RequestHandler):
             time_info = resp.time_info
             time_info = self.deal_time_info(time_info)
             content_length = len(resp.body) if resp.body else 0
-            is_sucss = str(resp.code) in status_code_list and response_data in resp.text
+            is_sucss = str(resp.code) in status_code_list and response_body in resp.text
             is_ssl = resp.effective_url.split('://')[0] == 'https'
             resp_code = resp.code
         stat = self.return_result_amity(time_info)
@@ -230,7 +230,6 @@ class MainHandler(RequestHandler):
                  f"probe_success {int(is_sucss)}\n"
 
         return output
-
 
     def deal_args(self) -> dict:
         """
@@ -317,8 +316,13 @@ class MainHandler(RequestHandler):
         :return:
         """
         data = self.get_urlencoded_body(data)
+        if method == 'GET':
+            body = None
+            url = (url + '?' + data) if data else url
+        else:
+            body = data
         request = HTTPRequest(
-            url, method=method, headers=headers, body=data, request_timeout=timeout,
+            url, method=method, headers=headers, body=body, request_timeout=timeout,
             connect_timeout=timeout
         )
         request.proxy_host = proxy.get('host')
@@ -377,10 +381,10 @@ class MainHandler(RequestHandler):
         finally:
             client.close()
         if resp:
-            resp = self.get_response_data(resp, resp_encoding)
+            resp = self.get_response_body(resp, resp_encoding)
         return resp
 
-    def get_response_data(self, resp: HTTPResponse, resp_encoding: str) -> HTTPResponse:
+    def get_response_body(self, resp: HTTPResponse, resp_encoding: str) -> HTTPResponse:
         """
         构造r.text
         :param resp:
