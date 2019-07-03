@@ -39,3 +39,18 @@ make start
 ```
 curl http://localhost:9116/probe?target=www.baidu.com&proxy=http://wangfan:123456@47.95.248.13:19000
 ```
+
+```
+curl http://localhost:9116/probe?target=www.baidu.com&chart=1
+```
+```
+          DNS Lookup   TCP Connection   TLS Handshake   Server Processing   Content Transfer
+        [     1ms    |       8ms      |      0ms      |       13ms        |        8ms       ]
+                     |                |               |                   |                  |
+            namelookup:1ms            |               |                   |                  |
+                                connect:9ms           |                   |                  |
+                                            pretransfer:9ms               |                  |
+                                                              starttransfer:23ms             |
+                                                                                         total:31ms
+
+```
