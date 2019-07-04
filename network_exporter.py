@@ -18,6 +18,7 @@ import time
 import pycurl
 import logging
 from typing import Optional
+from typing import Union
 from urllib.parse import urlencode
 
 from tornado.ioloop import IOLoop
@@ -29,6 +30,7 @@ from tornado.log import LogFormatter
 from logging.handlers import RotatingFileHandler
 from tornado.httpclient import HTTPRequest
 from tornado.httpclient import HTTPResponse
+from tornado.curl_httpclient import CurlError
 from tornado.curl_httpclient import CurlAsyncHTTPClient
 
 
@@ -63,7 +65,6 @@ class MainHandler(RequestHandler):
         :return:
         """
         self.logger = kwargs.get('logger')
-        self.response_message = ''  # 记录完整响应报文
 
     def deal_args(self) -> dict:
         """
@@ -207,7 +208,7 @@ class MainHandler(RequestHandler):
         return stat
 
     def return_result_tmp(self,
-                          resp: Optional[HTTPResponse],
+                          resp: Union[HTTPResponse, int, None],
                           all_time: str,
                           current_time: str,
                           status_code_list: list,
@@ -222,7 +223,7 @@ class MainHandler(RequestHandler):
         :param all_time:
         :return:
         """
-        if not resp:
+        if not resp or resp == 599:
             time_info = {
                 'dns_lookup': '0',
                 'namelookup': '0',
@@ -239,7 +240,7 @@ class MainHandler(RequestHandler):
             content_length = 0
             is_sucss = 0
             is_ssl = 0
-            resp_code = 0
+            resp_code = resp if resp else 0
             http_version = 0
         else:
             time_info = resp.time_info
@@ -248,9 +249,14 @@ class MainHandler(RequestHandler):
             is_sucss = str(resp.code) in status_code_list and response_body in resp.text
             is_ssl = resp.effective_url.split('://')[0] == 'https'
             resp_code = resp.code
-            http_version = self.response_message.split('\r\n')[0].split(' ')[0].split('/')[1]
+            try:
+                http_version = self.response_message.split('\r\n')[0].split(' ')[0].split('/')[1]
+            except Exception as e:
+                self.logger.error(e)
+                self.logger.error(self.response_message)
         stat = self.return_result_amity(time_info)
         if chart:
+            stat = self.response_message + '\r\n' + stat
             return stat
         output = f"# HELP probe_dns_lookup_time_seconds Returns the time taken for probe dns lookup in seconds\n"\
                  f"# TYPE probe_dns_lookup_time_seconds gauge\n"\
@@ -320,14 +326,17 @@ class MainHandler(RequestHandler):
         :param proxy:
         :return:
         """
+        self.response_message = ''  # 记录完整响应报文
         data = self.get_urlencoded_body(data)
         if method == 'GET':
             body = None
             url = (url + '?' + data) if data else url
         else:
             body = data
+
         def header_callback(m):
             self.response_message += m
+
         request = HTTPRequest(
             url, method=method, headers=headers, body=body, request_timeout=timeout,
             connect_timeout=timeout, header_callback=header_callback,
@@ -354,7 +363,7 @@ class MainHandler(RequestHandler):
                                 timeout: int,
                                 proxy_dict: dict,
                                 resp_encoding: str,
-                                ) -> Optional[HTTPResponse]:
+                                ) -> Union[HTTPResponse, int, None]:
         """
         检查代理状态
         :param url:
@@ -377,6 +386,9 @@ class MainHandler(RequestHandler):
                 )
             )
             self.logger.debug(msg)
+        except CurlError as e:
+            self.logger.error(e)
+            resp = 599
         except Exception as e:
             self.logger.error(
                 'proxy: {}:{}, url: {}, result: {}'.format(
@@ -385,10 +397,10 @@ class MainHandler(RequestHandler):
                 )
             )
             resp = None
+        else:
+            resp = self.get_response_body(resp, resp_encoding)
         finally:
             client.close()
-        if resp:
-            resp = self.get_response_body(resp, resp_encoding)
         return resp
 
     def get_response_body(self, resp: HTTPResponse, resp_encoding: str) -> HTTPResponse:
