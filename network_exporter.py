@@ -63,6 +63,55 @@ class MainHandler(RequestHandler):
         :return:
         """
         self.logger = kwargs.get('logger')
+        self.response_message = ''  # 记录完整响应报文
+
+    def deal_args(self) -> dict:
+        """
+        处理get参数
+        :param args:
+        :return:
+        """
+        args = self.request.arguments
+        for k, v in args.items():
+            new_v = []
+            for i in v:
+                i = i.decode()
+                new_v.append(i)
+            if not new_v:
+                args[k] = ''
+            elif k == 'status_code':
+                args[k] = [i.decode() for i in v]
+            elif len(new_v) == 1:
+                args[k] = new_v[0]
+        return args
+
+    @staticmethod
+    def format_proxy(proxy_str: str) -> dict:
+        """
+        格式化代理
+        :param proxy_str:
+        :return:
+        """
+        output = {}
+        proxy_info_list = proxy_str.split('://')
+        output['proxy_type'] = proxy_info_list[0]
+        if not proxy_str:
+            return {}
+        if '@' in proxy_str:
+            proxy_ip_info_list = proxy_info_list[1].split('@')
+            output['host'], output['port'] = proxy_ip_info_list[1].split(':')
+            output['port'] = int(output['port'])
+
+            if len(proxy_ip_info_list) == 2:
+                output['proxy_user'], output['proxy_pwd'] = (
+                    proxy_ip_info_list[0].split(':')
+                )
+
+        else:
+            output['host'], output['port'] = proxy_info_list[1].split(':')
+            output['port'] = int(output['port'])
+
+        return output
 
     async def get(self):
         """
@@ -86,7 +135,7 @@ class MainHandler(RequestHandler):
         resp = await self.use_proxy_request(url, method, data, headers, timeout, proxy_dict, resp_coding)
         current_time = f'{time.time():.8e}'
         all_time = str(time.time() - st)  # 探测完成所需的时间
-        output = self.return_result_tmp(resp, all_time, current_time,status_code_list, response_body, chart)
+        output = self.return_result_tmp(resp, all_time, current_time, status_code_list, response_body, chart)
         self.logger.debug(output)
         self.set_header("Content-Type", "text/plain; version=0.0.4")
         self.write(output)
@@ -191,6 +240,7 @@ class MainHandler(RequestHandler):
             is_sucss = 0
             is_ssl = 0
             resp_code = 0
+            http_version = 0
         else:
             time_info = resp.time_info
             time_info = self.deal_time_info(time_info)
@@ -198,6 +248,7 @@ class MainHandler(RequestHandler):
             is_sucss = str(resp.code) in status_code_list and response_body in resp.text
             is_ssl = resp.effective_url.split('://')[0] == 'https'
             resp_code = resp.code
+            http_version = self.response_message.split('\r\n')[0].split(' ')[0].split('/')[1]
         stat = self.return_result_amity(time_info)
         if chart:
             return stat
@@ -225,31 +276,13 @@ class MainHandler(RequestHandler):
                  f"# HELP probe_http_status_code Response HTTP status code\n" \
                  f"# TYPE probe_http_status_code gauge\n" \
                  f"probe_http_status_code {resp_code}\n" \
+                 f"# HELP probe_http_version Returns the version of HTTP of the probe response\n" \
+                 f"# TYPE probe_http_version gauge\n" \
+                 f"probe_http_version {http_version}\n" \
                  f"# HELP probe_success Displays whether or not the probe was a success\n" \
                  f"# TYPE probe_success gauge\n" \
                  f"probe_success {int(is_sucss)}\n"
-
         return output
-
-    def deal_args(self) -> dict:
-        """
-        处理get参数
-        :param args:
-        :return:
-        """
-        args = self.request.arguments
-        for k, v in args.items():
-            new_v = []
-            for i in v:
-                i = i.decode()
-                new_v.append(i)
-            if not new_v:
-                args[k] = ''
-            elif k == 'status_code':
-                args[k] = [i.decode() for i in v]
-            elif len(new_v) == 1:
-                args[k] = new_v[0]
-        return args
 
     @staticmethod
     def get_urlencoded_body(data: dict) -> Optional[str]:
@@ -268,34 +301,6 @@ class MainHandler(RequestHandler):
                 result.append((key, val))
 
         return urlencode(result)
-
-    @staticmethod
-    def format_proxy(proxy_str: str) -> dict:
-        """
-        格式化代理
-        :param proxy_str:
-        :return:
-        """
-        output = {}
-        proxy_info_list = proxy_str.split('://')
-        output['proxy_type'] = proxy_info_list[0]
-        if not proxy_str:
-            return {}
-        if '@' in proxy_str:
-            proxy_ip_info_list = proxy_info_list[1].split('@')
-            output['host'], output['port'] = proxy_ip_info_list[1].split(':')
-            output['port'] = int(output['port'])
-
-            if len(proxy_ip_info_list) == 2:
-                output['proxy_user'], output['proxy_pwd'] = (
-                    proxy_ip_info_list[0].split(':')
-                )
-
-        else:
-            output['host'], output['port'] = proxy_info_list[1].split(':')
-            output['port'] = int(output['port'])
-
-        return output
 
     def make_request(self,
                      url: str,
@@ -321,9 +326,11 @@ class MainHandler(RequestHandler):
             url = (url + '?' + data) if data else url
         else:
             body = data
+        def header_callback(m):
+            self.response_message += m
         request = HTTPRequest(
             url, method=method, headers=headers, body=body, request_timeout=timeout,
-            connect_timeout=timeout
+            connect_timeout=timeout, header_callback=header_callback,
         )
         request.proxy_host = proxy.get('host')
         request.proxy_port = proxy.get('port')
